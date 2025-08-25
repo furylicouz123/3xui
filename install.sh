@@ -38,10 +38,19 @@ download_repository() {
         "setup-letsencrypt.sh"
         "Makefile"
         "cleanup.sh"
+        "index.html"
+        "quick-deploy.sh"
         "website/index.html"
         "website/script.js"
         "website/assets/main.png"
+        "website/assets/gwafkIWvPelPtFvgTfDuJjXOKxc.mp4"
         ".gitignore"
+        "README.md"
+        "README-Docker.md"
+        "QUICK-START.md"
+        "DEPLOY-INSTRUCTIONS.md"
+        "CLEANUP-GUIDE.md"
+        "TROUBLESHOOTING.md"
     )
     
     # Создание необходимых директорий
@@ -60,6 +69,7 @@ download_repository() {
     # Делаем скрипты исполняемыми
     chmod +x setup-letsencrypt.sh 2>/dev/null || true
     chmod +x cleanup.sh 2>/dev/null || true
+    chmod +x quick-deploy.sh 2>/dev/null || true
     
     # Проверка критически важных файлов
     CRITICAL_FILES=("docker-compose.yml" "nginx.conf")
@@ -134,11 +144,19 @@ create_directories() {
 generate_ssl() {
     print_status "Создание SSL сертификатов..."
     
-    # Запрос домена у пользователя
-    read -p "Введите ваш домен (например, example.com): " DOMAIN
-    if [[ -z "$DOMAIN" ]]; then
-        print_error "Домен не может быть пустым!"
-        exit 1
+    # Получение домена из параметров командной строки или переменной окружения
+    if [[ -n "$1" ]]; then
+        DOMAIN="$1"
+    elif [[ -n "$DOMAIN_NAME" ]]; then
+        DOMAIN="$DOMAIN_NAME"
+    else
+        # Интерактивный запрос домена только если не передан параметр
+        read -p "Введите ваш домен (например, example.com): " DOMAIN
+        if [[ -z "$DOMAIN" ]]; then
+            print_error "Домен не может быть пустым!"
+            print_status "Используйте: $0 your-domain.com или установите переменную DOMAIN_NAME"
+            exit 1
+        fi
     fi
     
     print_status "Используется домен: $DOMAIN"
@@ -477,7 +495,7 @@ main() {
     fi
     
     create_directories
-    generate_ssl
+    generate_ssl "$1"
     setup_firewall
     optimize_system
     start_services
