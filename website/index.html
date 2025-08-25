@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terminaus - Главная страница</title>
+    <title>Linux Terminal Simulator</title>
+
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        
         * {
             margin: 0;
             padding: 0;
@@ -12,189 +15,389 @@
         }
         
         body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            font-family: 'Fira Code', monospace;
+            color: #ffffff;
+            overflow: hidden;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
         }
         
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-        
-        header {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 1rem 0;
+        #video-bg {
             position: fixed;
-            width: 100%;
             top: 0;
-            z-index: 1000;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
         }
         
-        nav {
+
+        
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border-bottom: 2px solid #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+            animation: glitch 2s infinite;
+            margin-bottom: 10px;
+        }
+        
+        .warning-text {
+            font-size: 1.2em;
+            color: #ff4444;
+            text-shadow: 0 0 5px #ff4444;
+            animation: blink 1.5s infinite;
+        }
+        
+        @keyframes glitch {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-2px); }
+            40% { transform: translateX(2px); }
+            60% { transform: translateX(-1px); }
+            80% { transform: translateX(1px); }
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        .terminal-container {
+            height: calc(100vh - 40px);
+            padding: 20px;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+        }
+        
+        .terminal {
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            height: 100%;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(16, 185, 129, 0.5) rgba(15, 23, 42, 0.3);
+        }
+        
+        .terminal::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .terminal::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+            border-radius: 4px;
+        }
+        
+        .terminal::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.6), rgba(5, 150, 105, 0.6));
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .terminal::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0.8), rgba(5, 150, 105, 0.8));
+        }
+        
+        .terminal:hover {
+            box-shadow: 
+                0 32px 64px -12px rgba(0, 0, 0, 0.6),
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+        
+        
+        .terminal-header {
+            display: flex;
             align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), transparent);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: -8px -8px 20px -8px;
         }
         
-        .logo {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: white;
-            text-decoration: none;
-        }
-        
-        .nav-links {
+        .terminal-buttons {
             display: flex;
-            list-style: none;
-            gap: 2rem;
+            gap: 10px;
+            margin-right: 16px;
         }
         
-        .nav-links a {
-            color: white;
-            text-decoration: none;
-            transition: opacity 0.3s;
+        .terminal-button {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
         
-        .nav-links a:hover {
-            opacity: 0.8;
+        .terminal-button:hover {
+            transform: scale(1.1);
+            box-shadow: 
+                0 4px 8px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
         
-        main {
-            margin-top: 80px;
-            padding: 4rem 0;
+        .close { 
+            background: linear-gradient(135deg, #ff6b6b, #ff5252);
+        }
+        .minimize { 
+            background: linear-gradient(135deg, #ffd93d, #ffb300);
+        }
+        .maximize { 
+            background: linear-gradient(135deg, #6bcf7f, #4caf50);
         }
         
-        .hero {
-            text-align: center;
-            color: white;
-            padding: 4rem 0;
+        .terminal-title {
+            color: #e2e8f0;
+            font-size: 0.95em;
+            font-weight: 500;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         }
         
-        .hero h1 {
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        .terminal-output {
+            margin-bottom: 10px;
         }
         
-        .hero p {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
+        .terminal-line {
+            margin-bottom: 6px;
+            word-wrap: break-word;
+            line-height: 1.5;
         }
         
-        .cta-button {
+        .terminal-line:hover {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
+        
+        .prompt {
+            color: #10b981;
+            font-weight: 600;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+        
+        .command {
+            color: #60a5fa;
+            font-weight: 500;
+        }
+        
+        .output {
+            color: #e2e8f0;
+            margin-left: 0;
+            line-height: 1.6;
+        }
+        
+        .error {
+            color: #f87171;
+            text-shadow: 0 0 8px rgba(248, 113, 113, 0.4);
+        }
+        
+        .input-line {
+            display: flex;
+            align-items: center;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-top: 8px;
+            transition: all 0.2s ease;
+            background: transparent;
+        }
+        
+        .input-line:focus-within {
+            border-color: rgba(16, 185, 129, 0.5);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+            background: transparent;
+        }
+        
+        .input-line .prompt {
+            margin-right: 8px;
+        }
+        
+        #terminal-input {
+            background: transparent;
+            border: none;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            outline: none;
+            flex: 1;
+            caret-color: #10b981;
+            color: #e2e8f0;
+        }
+        
+        .cursor {
             display: inline-block;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            padding: 1rem 2rem;
-            text-decoration: none;
-            border-radius: 50px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            transition: all 0.3s;
-            backdrop-filter: blur(10px);
+            width: 2px;
+            height: 18px;
+            background: linear-gradient(180deg, #10b981, #059669);
+            animation: cursor-blink 1s infinite;
+            border-radius: 1px;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
         }
         
-        .cta-button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
+        @keyframes cursor-blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
         }
         
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
+
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
         
-        .feature-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 2rem;
-            border-radius: 15px;
-            text-align: center;
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .feature-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        .feature-card h3 {
-            margin-bottom: 1rem;
-            font-size: 1.5rem;
-        }
-        
-        footer {
-            background: rgba(0, 0, 0, 0.2);
-            color: white;
-            text-align: center;
-            padding: 2rem 0;
-            margin-top: 4rem;
-        }
-        
-        @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2.5rem;
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
             }
-            
-            .nav-links {
-                display: none;
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
+        }
+        
+        @keyframes glow {
+            0%, 100% {
+                text-shadow: 0 0 5px currentColor;
+            }
+            50% {
+                text-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+            }
+        }
+        
+        .terminal-output {
+            /* animation removed to prevent text shifting */
+        }
+        
+        .ascii-art {
+            color: #10b981 !important;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+            animation: glow 3s ease-in-out infinite;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <header>
-        <nav class="container">
-            <a href="#" class="logo">Terminaus</a>
-            <ul class="nav-links">
-                <li><a href="#home">Главная</a></li>
-                <li><a href="#about">О нас</a></li>
-                <li><a href="#services">Услуги</a></li>
-                <li><a href="#contact">Контакты</a></li>
-            </ul>
-        </nav>
-    </header>
+    <video id="video-bg" autoplay muted loop>
+        <source src="assets/gwafkIWvPelPtFvgTfDuJjXOKxc.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
     
-    <main>
-        <section class="hero container">
-            <h1>Добро пожаловать в Terminaus</h1>
-            <p>Современные решения для вашего бизнеса</p>
-            <a href="#services" class="cta-button">Узнать больше</a>
-        </section>
-        
-        <section class="features container">
-            <div class="feature-card">
-                <div class="feature-icon">🚀</div>
-                <h3>Быстрое развертывание</h3>
-                <p>Мгновенное развертывание ваших проектов с использованием современных технологий</p>
+
+    
+
+    
+    <div class="terminal-container">
+        <div class="terminal">
+            <div class="terminal-header">
+                <div class="terminal-buttons">
+                    <div class="terminal-button close"></div>
+                    <div class="terminal-button minimize"></div>
+                    <div class="terminal-button maximize"></div>
+                </div>
+                <div class="terminal-title">root@hackermachine:~</div>
             </div>
             
-            <div class="feature-card">
-                <div class="feature-icon">🔒</div>
-                <h3>Безопасность</h3>
-                <p>Высокий уровень защиты данных и SSL-шифрование для всех соединений</p>
+            <div class="terminal-output" id="terminal-output">
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⣿⣿⡿⠋⠉⠁⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠉⠙⠿⣿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⡏⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⢹⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⠁⠄⣀⣤⣤⣄⣀⠄⠄⠄⠄⠄⠄⠄⠄⣀⣤⣤⣤⣄⠄⠄⠄⢿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⡇⠄⠚⠉⠛⠿⢿⣿⣷⡄⠄⠄⠄⠄⢠⣾⣿⡿⠿⠛⠉⠓⠄⠄⢸⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⡇⠄⠄⠄⣀⣀⠄⠙⣿⡅⠄⠄⠄⠄⢨⡿⠋⠄⣀⣀⠄⠄⠄⠄⢸⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⡇⢀⣴⣿⣿⣿⣿⣶⣼⣷⠄⠄⠄⠄⠈⢠⣶⣿⣿⣿⣿⣦⣀⠄⣸⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⡇⠘⠋⠉⠉⠉⠁⠄⢸⣿⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⢸⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⡄⠄⠄⠄⠄⠄⠄⣾⣿⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⣼⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⡽⣦⣤⠤⠤⠄⣾⢿⣿⠄⠄⠄⠄⠳⡄⠠⠤⣤⣤⣴⠄⠄⢿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⣧⣻⣽⣦⣄⠄⠉⠸⡇⠄⠄⡀⠄⠁⠄⠄⢀⣾⢏⡟⠄⣼⣿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⣿⣧⡹⣿⠿⢿⣷⣿⣿⠟⢿⣿⣶⣶⣾⠿⣿⡟⣼⠄⣼⣿⣿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⣿⣿⣧⡘⢿⣦⡈⡉⠉⠛⠒⠋⠉⠉⠁⣠⢏⣼⠄⣼⣿⣿⣿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⣿⣿⣿⣷⡘⢿⠄⠁⠙⣿⣿⠂⠄⠄⡴⢃⣾⠄⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⣿⣿⣿⣿⣿⣎⠄⠄⢰⣿⣿⠄⠄⠄⣠⣿⠄⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⡀⠸⣿⣿⠄⢀⣴⣿⠄⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output ascii-art">⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣿⣿⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output"></span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output">Linux TERMINAUS HACKING 5.15.0-kali3-amd64 #1 SMP Debian 5.15.15-2kali1 (2022-01-31) x86_64</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output">Welcome to Kali Linux</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output">Last login: $(date)</span>
+                </div>
+                <div class="terminal-line">
+                    <span class="output">Type 'help' for available commands</span>
+                </div>
             </div>
             
-            <div class="feature-card">
-                <div class="feature-icon">⚡</div>
-                <h3>Высокая производительность</h3>
-                <p>Оптимизированная инфраструктура для максимальной скорости работы</p>
+            <div class="input-line">
+                <span class="prompt">root@hackermachine:~# </span>
+                <input type="text" id="terminal-input" autocomplete="off" spellcheck="false">
             </div>
-        </section>
-    </main>
-    
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 Terminaus. Все права защищены.</p>
         </div>
-    </footer>
+    </div>
+    
+    <script src="script.js"></script>
+
 </body>
 </html>

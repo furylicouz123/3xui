@@ -96,19 +96,108 @@ generate_ssl() {
     print_status "Сайт будет доступен на: https://$DOMAIN:443"
     print_status "3X-UI панель будет доступна на: https://$DOMAIN:2053"
     
-    # Создание SSL сертификата для домена
-    print_status "Создание SSL сертификата для $DOMAIN..."
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout ssl/domain.key \
-        -out ssl/domain.crt \
-        -subj "/C=RU/ST=Moscow/L=Moscow/O=IT Services/CN=$DOMAIN" 2>/dev/null
+    # Сохранение домена в .env файл
+    echo "XUI_DOMAIN=$DOMAIN" > .env
+    echo "WEBSITE_DOMAIN=$DOMAIN" >> .env
+    
+    # Копирование конфигурации Nginx если она не существует
+    if [[ ! -f "nginx.conf" ]]; then
+        if [[ -f "config/nginx.conf" ]]; then
+            cp config/nginx.conf nginx.conf
+            print_status "Скопирован nginx.conf из config/"
+        else
+            print_error "Файл nginx.conf не найден ни в текущей директории, ни в config/"
+            exit 1
+        fi
+    fi
     
     # Обновление конфигурации Nginx
     sed -i "s/your-domain.com/$DOMAIN/g" nginx.conf
     sed -i "s/terminaus.ru/$DOMAIN/g" nginx.conf
     
-    print_success "Временные SSL сертификаты созданы"
-    print_warning "После установки запустите: ./setup-letsencrypt.sh для получения настоящих SSL сертификатов"
+    # Попытка получить Let's Encrypt сертификаты автоматически
+    print_status "Попытка получения Let's Encrypt сертификатов..."
+    
+    # Установка certbot если не установлен
+    if ! command -v certbot &> /dev/null; then
+        print_status "Установка certbot..."
+        apt-get update
+        apt-get install -y certbot python3-certbot-nginx
+    fi
+    
+    # Создание директории для SSL если не существует
+    mkdir -p ssl
+    
+    # Попытка получить реальные SSL сертификаты
+    print_status "Получение SSL сертификата для $DOMAIN..."
+    if certbot certonly --standalone --non-interactive --agree-tos \
+        --email admin@$DOMAIN \
+        -d $DOMAIN 2>/dev/null; then
+        
+        # Копирование сертификатов Let's Encrypt
+        cp /etc/letsencrypt/live/$DOMAIN/privkey.pem ssl/domain.key
+        cp /etc/letsencrypt/live/$DOMAIN/fullchain.pem ssl/domain.crt
+        
+        # Установка правильных прав доступа
+        chmod 600 ssl/*.key
+        chmod 644 ssl/*.crt
+        
+        print_success "Let's Encrypt SSL сертификаты получены и настроены!"
+        
+        # Настройка автообновления сертификатов
+        setup_auto_renewal_cron
+    else
+        print_warning "Не удалось получить Let's Encrypt сертификаты. Создаю временные..."
+        
+        # Создание временных SSL сертификатов
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout ssl/domain.key \
+            -out ssl/domain.crt \
+            -subj "/C=RU/ST=Moscow/L=Moscow/O=IT Services/CN=$DOMAIN" 2>/dev/null
+        
+        print_success "Временные SSL сертификаты созданы"
+        print_warning "Для получения настоящих SSL сертификатов запустите: ./setup-letsencrypt.sh"
+    fi
+}
+
+# Настройка автообновления сертификатов
+setup_auto_renewal() {
+    print_status "Настройка автообновления сертификатов..."
+    
+    # Создание скрипта обновления
+    cat > /usr/local/bin/renew-certs.sh << 'EOF'
+#!/bin/bash
+# Скрипт автообновления Let's Encrypt сертификатов
+
+cd $(dirname "$0")/../../load/vpn_page || exit 1
+
+# Загрузка переменных окружения
+source .env
+
+# Остановка nginx
+docker compose stop nginx-proxy
+
+# Обновление сертификатов
+certbot renew --quiet
+
+# Копирование обновленных сертификатов
+cp /etc/letsencrypt/live/$WEBSITE_DOMAIN/privkey.pem ssl/domain.key
+cp /etc/letsencrypt/live/$WEBSITE_DOMAIN/fullchain.pem ssl/domain.crt
+
+# Установка прав доступа
+chmod 600 ssl/*.key
+chmod 644 ssl/*.crt
+
+# Запуск nginx
+docker compose up -d nginx-proxy
+EOF
+    
+    chmod +x /usr/local/bin/renew-certs.sh
+    
+    # Добавление задачи в cron
+    (crontab -l 2>/dev/null; echo "0 3 * * * /usr/local/bin/renew-certs.sh") | crontab -
+    
+    print_success "Автообновление сертификатов настроено (каждый день в 3:00)"
 }
 
 # Настройка файрвола
@@ -171,24 +260,60 @@ EOF
 start_services() {
     print_status "Запуск сервисов..."
     
+    # Проверка наличия необходимых файлов
+    if [[ ! -f "docker-compose.yml" ]]; then
+        print_error "Файл docker-compose.yml не найден!"
+        exit 1
+    fi
+    
+    if [[ ! -f "nginx.conf" ]]; then
+        print_error "Файл nginx.conf не найден!"
+        exit 1
+    fi
+    
+    # Проверка наличия SSL сертификатов
+    if [[ ! -f "ssl/domain.key" ]] || [[ ! -f "ssl/domain.crt" ]]; then
+        print_error "SSL сертификаты не найдены!"
+        exit 1
+    fi
+    
     # Запуск Docker Compose
-    docker compose up -d
-    
-    # Ожидание запуска сервисов
-    sleep 10
-    
-    # Проверка статуса
-    if docker compose ps | grep -q "Up"; then
-        print_success "Сервисы запущены успешно"
+    print_status "Запуск контейнеров..."
+    if docker compose up -d; then
+        print_status "Контейнеры запущены, ожидание инициализации..."
+        
+        # Ожидание запуска сервисов
+        sleep 15
+        
+        # Проверка статуса контейнеров
+        if docker compose ps --format "table {{.Name}}\t{{.Status}}" | grep -q "Up"; then
+            print_success "Сервисы запущены успешно"
+            
+            # Показать статус всех контейнеров
+            print_status "Статус контейнеров:"
+            docker compose ps
+        else
+            print_error "Некоторые сервисы не запустились"
+            print_status "Логи контейнеров:"
+            docker compose logs --tail=20
+            
+            # Не выходим с ошибкой, просто показываем предупреждение
+            print_warning "Проверьте логи выше для диагностики проблем"
+        fi
     else
-        print_error "Ошибка запуска сервисов"
-        docker compose logs
+        print_error "Ошибка запуска Docker Compose"
         exit 1
     fi
 }
 
 # Вывод информации о доступе
 show_access_info() {
+    # Загружаем домен из .env файла
+    if [[ -f ".env" ]]; then
+        source .env
+        DOMAIN=$WEBSITE_DOMAIN
+    fi
+    
     echo
     echo "======================================"
     echo -e "${GREEN}Установка завершена успешно!${NC}"
@@ -206,17 +331,85 @@ show_access_info() {
     echo "- Логин: admin"
     echo "- Пароль: admin123"
     echo
+    echo "SSL сертификаты:"
+    if [[ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]]; then
+        echo "- ✅ Let's Encrypt сертификаты установлены и настроены"
+        echo "- ✅ Автообновление сертификатов активно"
+    else
+        echo "- ⚠️  Используются временные самоподписанные сертификаты"
+        echo "- 💡 Для получения настоящих SSL сертификатов запустите: ./setup-letsencrypt.sh"
+    fi
+    echo
     echo "Следующие шаги:"
     echo "1. Настройте DNS запись для вашего домена:"
     echo "   - $DOMAIN -> $(curl -s ifconfig.me)"
-    echo "2. Для продакшена рекомендуется настроить Let's Encrypt SSL"
+    echo "2. Дождитесь распространения DNS (может занять до 24 часов)"
+    echo "3. Проверьте доступность сайтов по HTTPS"
     echo
     echo "Полезные команды:"
     echo "- Просмотр логов: docker compose logs"
     echo "- Остановка: docker compose down"
     echo "- Перезапуск: docker compose restart"
     echo "- Обновление: docker compose pull && docker compose up -d"
+    echo "- Проверка сертификатов: certbot certificates"
     echo
+}
+
+# Настройка автообновления сертификатов
+setup_auto_renewal_cron() {
+    print_status "Настройка автообновления сертификатов..."
+    
+    # Получаем текущую директорию
+    CURRENT_DIR=$(pwd)
+    
+    # Создание скрипта обновления
+    cat > /usr/local/bin/renew-certs.sh << EOF
+#!/bin/bash
+# Переход в директорию проекта
+cd $CURRENT_DIR
+
+# Загрузка переменных окружения
+if [[ -f ".env" ]]; then
+    source .env
+    DOMAIN=\$WEBSITE_DOMAIN
+else
+    echo "Ошибка: файл .env не найден"
+    exit 1
+fi
+
+# Остановка nginx
+docker compose stop nginx-proxy
+
+# Обновление сертификатов
+certbot renew --quiet
+
+# Копирование сертификатов
+if [[ -f "/etc/letsencrypt/live/\$DOMAIN/fullchain.pem" ]]; then
+    cp /etc/letsencrypt/live/\$DOMAIN/fullchain.pem ssl/domain.crt
+    cp /etc/letsencrypt/live/\$DOMAIN/privkey.pem ssl/domain.key
+    
+    # Установка прав
+    chmod 600 ssl/*.key
+    chmod 644 ssl/*.crt
+    
+    echo "Сертификаты обновлены успешно"
+else
+    echo "Ошибка: сертификаты не найдены для домена \$DOMAIN"
+fi
+
+# Запуск nginx
+docker compose up -d nginx-proxy
+EOF
+
+    # Делаем скрипт исполняемым
+    chmod +x /usr/local/bin/renew-certs.sh
+    
+    # Добавление задачи в cron (обновление каждый день в 3:00)
+    (crontab -l 2>/dev/null; echo "0 3 * * * /usr/local/bin/renew-certs.sh >> /var/log/letsencrypt-renewal.log 2>&1") | crontab -
+    
+    print_success "Автообновление сертификатов настроено"
+    print_status "Сертификаты будут проверяться ежедневно в 3:00"
+    print_status "Логи обновления: /var/log/letsencrypt-renewal.log"
 }
 
 # Основная функция
