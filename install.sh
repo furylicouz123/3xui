@@ -24,6 +24,55 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Скачивание файлов репозитория
+download_repository() {
+    print_status "Скачивание файлов репозитория..."
+    
+    # URL репозитория
+    REPO_URL="https://raw.githubusercontent.com/furylicouzzz123/3xui-full/main"
+    
+    # Список файлов для скачивания
+    FILES=(
+        "docker-compose.yml"
+        "nginx.conf"
+        "setup-letsencrypt.sh"
+        "Makefile"
+        "cleanup.sh"
+        "website/index.html"
+        "website/script.js"
+        "website/assets/main.png"
+        ".gitignore"
+    )
+    
+    # Создание необходимых директорий
+    mkdir -p website/assets
+    
+    # Скачивание файлов
+    for file in "${FILES[@]}"; do
+        print_status "Скачивание $file..."
+        if curl -sSL "$REPO_URL/$file" -o "$file"; then
+            print_success "$file скачан успешно"
+        else
+            print_warning "Не удалось скачать $file, продолжаем..."
+        fi
+    done
+    
+    # Делаем скрипты исполняемыми
+    chmod +x setup-letsencrypt.sh 2>/dev/null || true
+    chmod +x cleanup.sh 2>/dev/null || true
+    
+    # Проверка критически важных файлов
+    CRITICAL_FILES=("docker-compose.yml" "nginx.conf")
+    for file in "${CRITICAL_FILES[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            print_error "Критически важный файл $file не был скачан!"
+            exit 1
+        fi
+    done
+    
+    print_success "Файлы репозитория скачаны и проверены"
+}
+
 # Проверка прав root
 check_root() {
     if [[ $EUID -ne 0 ]]; then
@@ -100,15 +149,10 @@ generate_ssl() {
     echo "XUI_DOMAIN=$DOMAIN" > .env
     echo "WEBSITE_DOMAIN=$DOMAIN" >> .env
     
-    # Копирование конфигурации Nginx если она не существует
+    # Проверка наличия nginx.conf (должен быть скачан функцией download_repository)
     if [[ ! -f "nginx.conf" ]]; then
-        if [[ -f "config/nginx.conf" ]]; then
-            cp config/nginx.conf nginx.conf
-            print_status "Скопирован nginx.conf из config/"
-        else
-            print_error "Файл nginx.conf не найден ни в текущей директории, ни в config/"
-            exit 1
-        fi
+        print_error "Файл nginx.conf не найден. Возможно, произошла ошибка при скачивании файлов репозитория."
+        exit 1
     fi
     
     # Обновление конфигурации Nginx
@@ -421,6 +465,9 @@ main() {
     echo
     
     check_root
+    
+    # Скачивание файлов репозитория
+    download_repository
     
     # Проверка наличия Docker
     if ! command -v docker &> /dev/null; then
