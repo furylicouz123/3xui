@@ -4,21 +4,23 @@
 
 ## Быстрая установка
 
-### Способ 1: С указанием домена в команде
+### Способ 1: Автоматическая установка с доменом (рекомендуется)
 ```bash
-curl -sSL https://raw.githubusercontent.com/furylicouzzz123/3xui-full/main/install.sh | bash -s your-domain.com
+bash <(curl -sSL https://raw.githubusercontent.com/furylicouzzz123/3xui-full/main/install.sh) your-domain.com
 ```
+*Замените `your-domain.com` на ваш реальный домен*
 
-### Способ 2: Через переменную окружения
+### Способ 2: Установка через переменную окружения
 ```bash
-DOMAIN_NAME=your-domain.com curl -sSL https://raw.githubusercontent.com/furylicouzzz123/3xui-full/main/install.sh | bash
+DOMAIN_NAME=your-domain.com bash <(curl -sSL https://raw.githubusercontent.com/furylicouzzz123/3xui-full/main/install.sh)
 ```
+*Замените `your-domain.com` на ваш реальный домен*
 
-### Способ 3: Интерактивная установка
+### Способ 3: Интерактивная установка (только SSH терминалы)
 ```bash
 curl -sSL https://raw.githubusercontent.com/furylicouzzz123/3xui-full/main/install.sh | bash
 ```
-*При этом способе скрипт запросит домен интерактивно*
+*При этом способе скрипт запросит домен интерактивно (работает только в SSH терминалах)*
 
 **Примечание:** Скрипт автоматически скачает все необходимые файлы из репозитория:
 - `docker-compose.yml` - конфигурация Docker контейнеров
@@ -66,16 +68,25 @@ curl -sSL https://raw.githubusercontent.com/furylicouzzz123/3xui-full/main/insta
 
 ### Автоматическая установка
 
-1. Запустите скрипт установки:
+**Рекомендуемый способ (с указанием домена):**
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/furylicouz123/3xui/main/install.sh) your-domain.com
+```
+
+**Альтернативный способ (через переменную окружения):**
+```bash
+DOMAIN_NAME=your-domain.com bash <(curl -sSL https://raw.githubusercontent.com/furylicouz123/3xui/main/install.sh)
+```
+
+**Интерактивный способ (только для SSH терминалов):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/furylicouz123/3xui/main/install.sh | bash
 ```
+*При этом способе вам будет предложено ввести домен вручную*
 
-2. Введите ваш домен когда будет запрошено
-3. Дождитесь завершения установки
-4. Получите доступ к вашим сервисам:
-   - Веб-сайт: `https://yourdomain.com`
-   - 3X-UI панель: `https://yourdomain.com:2053`
+**После установки получите доступ к сервисам:**
+- Веб-сайт: `https://yourdomain.com`
+- 3X-UI панель: `https://yourdomain.com:2053`
 
 ### Ручная установка
 

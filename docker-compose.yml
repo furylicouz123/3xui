@@ -25,7 +25,7 @@ services:
     volumes:
       - ./website:/usr/share/nginx/html:ro
     networks:
-      - network
+      - vpn-network
     expose:
       - "80"
 
@@ -60,8 +60,6 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
-  network:
-    driver: bridge
 
 volumes:
   xui-data:

@@ -150,11 +150,23 @@ generate_ssl() {
     elif [[ -n "$DOMAIN_NAME" ]]; then
         DOMAIN="$DOMAIN_NAME"
     else
-        # Интерактивный запрос домена только если не передан параметр
-        read -p "Введите ваш домен (например, example.com): " DOMAIN
-        if [[ -z "$DOMAIN" ]]; then
+        # Проверка на интерактивность терминала
+        if [[ -t 0 ]]; then
+            # Интерактивный запрос домена
+            echo
+            print_status "Для получения SSL сертификатов необходимо указать домен."
+            read -p "Введите ваш домен (например, example.com): " DOMAIN
+            if [[ -z "$DOMAIN" ]]; then
+                print_error "Домен не может быть пустым!"
+                print_status "Используйте: bash <(curl -sSL URL) your-domain.com"
+                print_status "Или установите переменную: DOMAIN_NAME=your-domain.com bash <(curl -sSL URL)"
+                exit 1
+            fi
+        else
             print_error "Домен не может быть пустым!"
-            print_status "Используйте: $0 your-domain.com или установите переменную DOMAIN_NAME"
+            print_status "При неинтерактивном запуске необходимо указать домен:"
+            print_status "Способ 1: bash <(curl -sSL URL) your-domain.com"
+            print_status "Способ 2: DOMAIN_NAME=your-domain.com bash <(curl -sSL URL)"
             exit 1
         fi
     fi
